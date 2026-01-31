@@ -4,14 +4,11 @@ import java.sql.*;
 import java.util.*;
 import org.apache.log4j.Logger;
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.dbcp.BasicDataSource; // Legacy Connection Pooling
+import org.apache.commons.dbcp.BasicDataSource;
 import org.joda.time.DateTime;
 
 public class NoteManager {
-    // Legacy Log4j 1.x
     private static final Logger logger = Logger.getLogger(NoteManager.class);
-    
-    // Legacy DBCP Data Source
     private static BasicDataSource dataSource;
 
     static {
@@ -22,7 +19,6 @@ public class NoteManager {
             dataSource.setUsername("root");
             dataSource.setPassword("your_password"); // CHANGE ME
             dataSource.setInitialSize(5);
-            
             logger.info("Database connection pool initialized.");
         } catch (Exception e) {
             logger.error("Failed to initialize DBCP pool", e);
@@ -36,7 +32,13 @@ public class NoteManager {
 
     // === CREATE ===
     public static synchronized void addNote(Note note) {
-        // Legacy Commons Lang check
+        // ADDED VALIDATION: Check for null object before processing.
+        if (note == null) {
+            throw new IllegalArgumentException("Note object cannot be null.");
+        }
+        
+        // This validation is now implicitly handled by the Note's setter,
+        // but we keep the explicit check here as a business rule safeguard.
         if (StringUtils.isEmpty(note.getTitle())) {
             throw new IllegalArgumentException("Title cannot be empty");
         }
@@ -51,7 +53,6 @@ public class NoteManager {
             ps.setString(1, note.getTitle());
             ps.setString(2, note.getContent());
             
-            // Convert Joda DateTime to SQL Timestamp
             if (note.getCreatedAt() != null) {
                 ps.setTimestamp(3, new Timestamp(note.getCreatedAt().getMillis()));
             } else {
@@ -75,6 +76,12 @@ public class NoteManager {
 
     // === READ ONE ===
     public static Note getNote(long id) {
+        // ADDED VALIDATION: Check for invalid ID before querying the database.
+        if (id <= 0) {
+            logger.warn("Attempted to get note with invalid ID: " + id);
+            return null; // Fail fast for invalid IDs.
+        }
+
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -89,7 +96,6 @@ public class NoteManager {
                 n.setTitle(rs.getString("title"));
                 n.setContent(rs.getString("content"));
                 
-                // Convert SQL Timestamp back to Joda DateTime
                 Timestamp ts = rs.getTimestamp("created_at");
                 if (ts != null) {
                     n.setCreatedAt(new DateTime(ts.getTime()));
@@ -107,6 +113,7 @@ public class NoteManager {
 
     // === READ ALL ===
     public static Collection getAllNotes() {
+        // ... (No changes needed here) ...
         List list = new ArrayList();
         Connection conn = null;
         PreparedStatement ps = null;
@@ -138,6 +145,17 @@ public class NoteManager {
     
     // === UPDATE ===
     public static synchronized void updateNote(Note note) {
+        // ADDED VALIDATION: Comprehensive checks for the update operation.
+        if (note == null) {
+            throw new IllegalArgumentException("Note to be updated cannot be null.");
+        }
+        if (note.getId() <= 0) {
+            throw new IllegalArgumentException("Cannot update a note with an invalid ID.");
+        }
+        if (StringUtils.isEmpty(note.getTitle())) {
+             throw new IllegalArgumentException("Title cannot be empty for update.");
+        }
+
         Connection conn = null;
         PreparedStatement ps = null;
         try {
@@ -161,6 +179,10 @@ public class NoteManager {
     
     // === DELETE ===
     public static synchronized void deleteNote(long id) {
+        // ADDED VALIDATION: Check for invalid ID before delete operation.
+        if (id <= 0) {
+             throw new IllegalArgumentException("Cannot delete note with invalid ID: " + id);
+        }
         Connection conn = null;
         PreparedStatement ps = null;
         try {
@@ -179,13 +201,13 @@ public class NoteManager {
 
     // === SEARCH NOTES ===
     public static Collection searchNotes(String query) {
+        // ... (No changes needed here, StringUtils.isBlank is good) ...
         List list = new ArrayList();
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
             conn = getConnection();
-            // Using Commons Lang to check query
             if (StringUtils.isBlank(query)) {
                 return list;
             }
@@ -218,6 +240,7 @@ public class NoteManager {
 
     // === GET NOTE COUNT ===
     public static int getNoteCount() {
+        // ... (No changes needed here) ...
         Connection conn = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -239,13 +262,13 @@ public class NoteManager {
 
     // === BULK DELETE ===
     public static synchronized void deleteMultipleNotes(String[] ids) {
+        // ... (No changes needed, existing checks are sufficient) ...
         if (ids == null || ids.length == 0) {
             return;
         }
         Connection conn = null;
         try {
             conn = getConnection();
-            // Legacy StringBuffer usage
             StringBuffer sb = new StringBuffer("DELETE FROM notes WHERE id IN (");
             for (int i = 0; i < ids.length; i++) {
                 sb.append("?");
